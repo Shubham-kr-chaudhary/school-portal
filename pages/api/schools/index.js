@@ -33,8 +33,11 @@ const uploadToCloudinary = (buffer) =>
   });
 
 
-const uploadDir = path.join(process.cwd(), "public", "schoolImages");
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+let uploadDir = null;
+if (process.env.CLOUDINARY_ENABLED !== "true") {
+  uploadDir = path.join(process.cwd(), "public", "schoolImages");
+  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 export default async function handler(req, res) {
   const pool = getPool();
@@ -82,11 +85,11 @@ export default async function handler(req, res) {
             if (process.env.CLOUDINARY_ENABLED === "true") {
               const result = await uploadToCloudinary(buffer);
               imagePathOrUrl = result.secure_url;
-            } else {
+            } else if (uploadDir) {
               const filename = `${uuidv4()}${ext}`;
-              const dest = path.join(uploadDir, filename);
-              fs.copyFileSync(tempPath, dest);
-              imagePathOrUrl = `/schoolImages/${filename}`;
+             const dest = path.join(uploadDir, filename);
+             fs.copyFileSync(tempPath, dest);
+             imagePathOrUrl = `/schoolImages/${filename}`;
             }
           }
         }
