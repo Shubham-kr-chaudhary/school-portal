@@ -41,7 +41,7 @@ Features: image upload (Cloudinary), responsive UI (Tailwind), API routes, and r
 1. Clone the repo
 
 ```bash
-git clone https://github.com/<your-username>/school-portal.git
+git clone https://github.com/Shubham-kr-chaudhary/school-portal.git
 cd school-portal
 ```
 
