@@ -55,17 +55,17 @@ npm install
 
 ```env
 # Railway / hosted MySQL (public proxy host)
-DB_HOST=caboose.proxy.rlwy.net
-DB_PORT=15344
+DB_HOST=
+DB_PORT=
 DB_USER=root
-DB_PASSWORD=your_db_password_here
-DB_NAME=railway
+DB_PASSWORD=
+DB_NAME=
 
 # Cloudinary (set to true for production/Vercel)
 CLOUDINARY_ENABLED=true
-CLOUDINARY_CLOUD_NAME=dn9rqnozy
-CLOUDINARY_API_KEY=294998583524287
-CLOUDINARY_API_SECRET=4JtVOeQ3txY_CZLhExWKAgU28SA
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
 ```
 
 **Important:**
