@@ -5,6 +5,8 @@ import { getPool } from "../../../lib/db.js";
 import { v4 as uuidv4 } from "uuid";
 import { v2 as cloudinary } from "cloudinary";
 import streamifier from "streamifier";
+import { getUserFromReq } from "../../../lib/getUser.js";
+
 
 export const config = { api: { bodyParser: false } };
 
@@ -54,6 +56,10 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "POST") {
+
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+
     const form = new IncomingForm({ multiples: false, keepExtensions: true });
 
     form.parse(req, async (err, fields, files) => {

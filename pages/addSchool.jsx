@@ -2,6 +2,18 @@ import { useForm } from "react-hook-form";
 import axios from "axios";
 import { useState } from "react";
 import { useRouter } from "next/router";
+import cookie from "cookie";
+import { verifySession } from "../lib/auth.js";
+
+
+export async function getServerSideProps({ req }) {
+  const cookies = req.headers.cookie ? cookie.parse(req.headers.cookie) : {};
+  const token = cookies.sp_session;
+  if (!token) return { redirect: { destination: "/login", permanent: false } };
+  const user = verifySession(token);
+  if (!user) return { redirect: { destination: "/login", permanent: false } };
+  return { props: {} };
+}
 
 export default function AddSchool() {
   const { register, handleSubmit, reset } = useForm();
