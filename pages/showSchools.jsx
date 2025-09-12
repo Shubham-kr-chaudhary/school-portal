@@ -7,6 +7,11 @@ export default function ShowSchools() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  async function logout() {
+  await axios.post("/api/auth/logout");
+  window.location.reload();
+}
+
   useEffect(() => {
     (async () => {
       try {
@@ -29,6 +34,8 @@ export default function ShowSchools() {
           <button onClick={() => router.push("/addSchool")} className="sp-btn sp-btn-primary">
             + Add School
           </button>
+          
+<button onClick={logout} className="sp-btn sp-btn-ghost">Logout</button>
         </div>
       </div>
 
