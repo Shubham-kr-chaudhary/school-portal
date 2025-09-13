@@ -54,18 +54,36 @@ npm install
 3. Create `.env.local` in the project root. Example:
 
 ```env
-# Railway / hosted MySQL (public proxy host)
-DB_HOST=
-DB_PORT=
-DB_USER=root
-DB_PASSWORD=
-DB_NAME=
+# Database (Railway / local)
+DB_HOST=<db-hostname>
+DB_PORT=<db-port>
+DB_USER=<db-user>
+DB_PASSWORD=<db-password>
+DB_NAME=<db-name>
 
-# Cloudinary (set to true for production/Vercel)
+# Cloudinary (production)
 CLOUDINARY_ENABLED=true
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
+CLOUDINARY_CLOUD_NAME=<cloudinary-name>
+CLOUDINARY_API_KEY=<cloudinary-key>
+CLOUDINARY_API_SECRET=<cloudinary-secret>
+
+# JWT & OTP
+JWT_SECRET=<long_random_string>
+JWT_EXPIRES=7d
+OTP_TTL_MIN=10
+
+# Email (SMTP / Gmail app password recommended for small demos)
+EMAIL_PROVIDER=smtp
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=you@example.com
+SMTP_PASS=<app_password_or_smtp_password>
+EMAIL_FROM=you@example.com
+
+# Dev helper (logs OTP to server terminal — DO NOT enable in production)
+DEV_LOG_OTP=true
+
 ```
 
 **Important:**
@@ -90,6 +108,29 @@ CREATE TABLE IF NOT EXISTS schools (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
+```
+USE railway;
+
+CREATE TABLE IF NOT EXISTS users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS otps (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  email VARCHAR(255) NOT NULL,
+  otp_hash CHAR(64) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  used BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX (email),
+  INDEX (expires_at)
+);
+```
+
+The otps table stores only a SHA-256 hash of OTPs and tracks expiry and usage.
+
 
 5. Start dev server
 
@@ -223,11 +264,158 @@ export default {
 
 ---
 
-## Recommended improvements (optional)
+Test OTP flow (PowerShell)
 
-* Add validation (Zod + @hookform/resolvers).
-* Add pagination or search to `/showSchools`.
-* Add authentication for protected admin actions.
-* Convert to Prisma for schema migrations.
+PowerShell Invoke-RestMethod example:
 
+Invoke-RestMethod -Uri "http://localhost:3000/api/auth/request-otp" -Method POST -Headers @{ "Content-Type"="application/json" } -Body '{"email":"you@example.com"}'
+# check terminal (if DEV_LOG_OTP=true) or your email for OTP
+Invoke-RestMethod -Uri "http://localhost:3000/api/auth/verify-otp" -Method POST -Headers @{ "Content-Type"="application/json" } -Body '{"email":"you@example.com","otp":"123456"}'
+
+
+Or use curl in WSL / Git Bash:
+
+curl -X POST http://localhost:3000/api/auth/request-otp -H "Content-Type: application/json" -d '{"email":"you@example.com"}'
+
+
+On successful verification the server sets an HttpOnly cookie sp_session (JWT). The /addSchool page is protected server-side and requires this cookie.
+
+Email provider options
+SMTP (Gmail App Password) — quick to set up for demos
+
+Enable 2-step verification on the Google account
+
+Create an App Password and use that as SMTP_PASS
+
+Works on Vercel (store the same env vars in Vercel project settings)
+
+lib/email.js uses Nodemailer. Install:
+
+npm install nodemailer
+
+
+If you prefer SendGrid / Mailgun / Postmark — implement or swap the lib/email.js provider accordingly and add provider keys to env.
+
+Cloudinary notes (production)
+
+In production set CLOUDINARY_ENABLED=true and add CLOUDINARY_* values in Vercel envs.
+
+Vercel’s server filesystem is read-only — do not rely on public/schoolImages in production.
+
+next.config.mjs (images)
+
+If you use next/image with Cloudinary URLs, ensure next.config.mjs includes:
+
+export default {
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'res.cloudinary.com', pathname: '/**' }
+    ],
+  },
+};
+
+
+Restart the dev server after changing config.
+
+Deploy to Vercel
+
+Push code to GitHub (do not push .env.local).
+
+Import the repository into Vercel.
+
+In Vercel project settings add the same environment variables (DB, JWT, SMTP, Cloudinary). Set for Production.
+
+Deploy — Vercel auto-deploys on push. Monitor build & runtime logs for errors (DB, SMTP, Cloudinary).
+
+Important: Do NOT enable DEV_LOG_OTP in production.
+
+API summary
+
+GET /api/schools — list schools (public)
+
+POST /api/schools — create school (requires valid session cookie — authenticated)
+
+POST /api/auth/request-otp — send OTP to email
+
+POST /api/auth/verify-otp — verify OTP and set session cookie
+
+POST /api/auth/logout — clear session cookie
+
+GET /api/auth/me — returns { authenticated: true|false }
+
+Troubleshooting
+
+No OTP email:
+
+If DEV_LOG_OTP=true you will see OTP in server terminal — use this only for dev.
+
+If SMTP returns auth errors, rotate and re-enter the SMTP credentials (Gmail App Password recommended).
+
+DB connection errors (getaddrinfo, EAI_FAIL):
+
+Make sure DB_HOST contains only the hostname (no mysql://), and DB_PORT is set correctly.
+
+ENOENT mkdir /public/schoolImages on Vercel:
+
+Ensure CLOUDINARY_ENABLED=true so the app uploads to Cloudinary instead of writing to the filesystem.
+
+Session/cookie issues:
+
+Ensure JWT_SECRET is set in Vercel and locally. Cookies are HttpOnly — client JS cannot read them directly.
+
+Tailwind not applied:
+
+Confirm styles/globals.css includes Tailwind directives and _app.jsx imports it.
+
+Project structure (key files)
+/pages
+  /api
+    /auth
+      request-otp.js
+      verify-otp.js
+      logout.js
+      me.js
+    /schools
+      index.js
+  addSchool.jsx
+  showSchools.jsx
+  login.jsx
+  verify.jsx
+  index.jsx
+
+/lib
+  auth.js
+  email.js
+  getUser.js
+  db.js
+
+/styles
+  globals.css
+
+/next.config.mjs
+/package.json
+/scripts
+  init-db.js
+
+Security & housekeeping
+
+Do not commit secrets. Use Vercel environment variables for production.
+
+Rotate credentials immediately if they were exposed (SMTP app password, DB password, Cloudinary keys).
+
+DEV_LOG_OTP=true is for local testing only — never enable in production.
+
+OTPs are stored only as SHA-256 hashes and marked used after verification.
+
+Next steps & recommended improvements
+
+Add rate limiting for request-otp (prevent brute-force or spam).
+
+Add attempt limits and account lockouts for OTP verification.
+
+Add pagination/search on /showSchools.
+
+Replace raw SQL with an ORM (Prisma) if you want migrations and type safety.
+
+Add user roles if you need admin vs viewer controls.
 ---
