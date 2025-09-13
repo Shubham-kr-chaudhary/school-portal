@@ -1,63 +1,94 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { useRouter } from "next/router";
 
 export default function Verify() {
+  const router = useRouter();
+  const { email: emailQuery } = router.query;
+
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
-  const router = useRouter();
+  const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+    if (emailQuery) setEmail(String(emailQuery));
+  }, [emailQuery]);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setBusy(true);
+    setErrorMsg("");
     try {
       const res = await axios.post("/api/auth/verify-otp", { email, otp });
       if (res.data && res.data.success) {
-        router.push("/addSchool"); // logged in — go to add page
+        
+        router.push("/addSchool");
       } else {
-        alert("Invalid code");
+        setErrorMsg("Invalid or expired code.");
       }
     } catch (err) {
       console.error(err);
-      alert(err?.response?.data?.error || "Verification failed");
+      setErrorMsg(err?.response?.data?.error || "Verification failed");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded shadow-md w-full max-w-md space-y-4">
-        <h2 className="text-xl font-semibold">Enter your code</h2>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
-          required
-          className="w-full p-2 border rounded"
-        />
-        <input
-          type="text"
-          value={otp}
-          onChange={(e) => setOtp(e.target.value)}
-          placeholder="6-digit code"
-          required
-          className="w-full p-2 border rounded"
-          maxLength={6}
-          inputMode="numeric"
-        />
+    <div className="sp-page-container">
+      <div className="sp-card-wrapper">
+        <h1 className="sp-page-heading" style={{ marginBottom: 12 }}>
+          Enter verification code
+        </h1>
 
-        <div className="flex gap-2">
-          <button type="submit" disabled={busy} className="px-4 py-2 bg-blue-600 text-white rounded">
-            {busy ? "Verifying..." : "Verify"}
-          </button>
-          <button type="button" onClick={() => router.push("/login")} className="px-4 py-2 bg-gray-200 rounded">
-            Back
-          </button>
-        </div>
-      </form>
+        {errorMsg && (
+          <div className="sp-banner" role="alert" aria-live="assertive" style={{ marginBottom: 12 }}>
+            <div>{errorMsg}</div>
+            <div className="sp-banner-actions">
+              <button onClick={() => setErrorMsg("")} className="sp-btn sp-btn-ghost">
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="sp-form">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            required
+            className="sp-input"
+          />
+
+          <input
+            type="text"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value)}
+            placeholder="6-digit code"
+            required
+            className="sp-input"
+            maxLength={6}
+            inputMode="numeric"
+          />
+
+          <div className="sp-actions" style={{ marginTop: 6 }}>
+            <button type="submit" disabled={busy} className="sp-btn sp-btn-primary full">
+              {busy ? "Verifying..." : "Verify"}
+            </button>
+
+            <button type="button" onClick={() => router.push("/login")} className="sp-btn sp-btn-outline">
+              Back
+            </button>
+          </div>
+
+          <div style={{ marginTop: 10, fontSize: 13, color: "#6b7280" }}>
+            Didn't receive a code? Go back to <a className="sp-link" onClick={() => router.push("/login")} style={{ cursor: "pointer", color: "#2563eb" }}>Login</a> and resend.
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

@@ -5,37 +5,88 @@ import { useRouter } from "next/router";
 export default function ShowSchools() {
   const [schools, setSchools] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const router = useRouter();
 
   async function logout() {
-  await axios.post("/api/auth/logout");
-  window.location.reload();
-}
+    try {
+      await axios.post("/api/auth/logout");
+      setIsLoggedIn(false);
+   
+      window.location.reload();
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
+  }
 
   useEffect(() => {
-    (async () => {
+ 
+    let mounted = true;
+
+    async function fetchAll() {
+      setLoading(true);
       try {
-        const res = await axios.get("/api/schools");
-        setSchools(res.data || []);
+      
+        const authReq = axios.get("/api/auth/me").catch(() => ({ data: { authenticated: false } }));
+        const schoolsReq = axios.get("/api/schools").catch((e) => {
+          console.error("Error fetching schools:", e);
+          return { data: [] };
+        });
+
+        const [authRes, schoolsRes] = await Promise.all([authReq, schoolsReq]);
+
+        if (!mounted) return;
+
+        setIsLoggedIn(Boolean(authRes?.data?.authenticated));
+        setSchools(schoolsRes?.data || []);
       } catch (err) {
-        console.error("Error fetching schools:", err);
-        setSchools([]);
+        console.error("Error loading data:", err);
+        if (mounted) {
+          setIsLoggedIn(false);
+          setSchools([]);
+        }
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
-    })();
+    }
+
+    fetchAll();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   return (
     <div className="sp-page-wrapper">
       <div className="sp-header">
         <h2 className="sp-title">All Schools</h2>
-        <div>
-          <button onClick={() => router.push("/addSchool")} className="sp-btn sp-btn-primary">
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            onClick={() => {
+              if (!isLoggedIn) {
+                
+                router.push("/login");
+                return;
+              }
+              router.push("/addSchool");
+            }}
+            className="sp-btn sp-btn-primary"
+          >
             + Add School
           </button>
-          
-<button onClick={logout} className="sp-btn sp-btn-ghost">Logout</button>
+
+       
+          {isLoggedIn ? (
+            <button onClick={logout} className="sp-btn sp-btn-ghost">
+              Logout
+            </button>
+          ) : (
+       
+            <button onClick={() => router.push("/login")} className="sp-btn sp-btn-outline">
+              Login
+            </button>
+          )}
         </div>
       </div>
 
@@ -57,9 +108,7 @@ export default function ShowSchools() {
 
               <div className="sp-card-body">
                 <h3 className="sp-card-title">{s.name}</h3>
-                <p className="sp-muted">
-                  {[s.address, s.city, s.state].filter(Boolean).join(", ")}
-                </p>
+                <p className="sp-muted">{[s.address, s.city, s.state].filter(Boolean).join(", ")}</p>
 
                 <div className="sp-meta">
                   {s.contact && <div>📞 {s.contact}</div>}
